@@ -366,3 +366,26 @@ def test_the_stage_is_a_field_and_never_text():
     assert str(coded) == f"{plain} [42703]"
     assert StatementStage.PLAN == "plan"
     assert StatementStage.RUN == "run"
+
+
+def test_warehouse_query_error_wording_depends_on_who_wrote_the_statement() -> None:
+    from exmergo_dex_core import StatementStage, WarehouseQueryError
+
+    built = WarehouseQueryError("Column 'amount' cannot be resolved")
+    detail = "Column 'amount' cannot be resolved"
+    assert str(built) == f"the warehouse refused a statement dex built: {detail}"
+
+    written = built.from_caller()
+    assert (
+        str(written)
+        == "the warehouse refused the statement: Column 'amount' cannot be resolved"
+    )
+
+    named = (
+        WarehouseQueryError("boom", stage=StatementStage.RUN)
+        .from_caller()
+        .naming("RAW_X")
+    )
+    assert named.stage is StatementStage.RUN
+    assert named.authored_by == "caller"
+    assert str(named) == "the warehouse refused the statement while reading RAW_X: boom"
