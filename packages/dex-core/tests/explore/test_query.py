@@ -1144,3 +1144,21 @@ def test_arguments_and_a_file_together_are_refused(
     )
     assert payload["reason"] == "request"
     assert "not both" in payload["errors"][0]
+
+
+def test_warehouse_refusal_of_agent_sql_does_not_say_dex_built_it(
+    airbnb_duckdb: Path, tmp_path: Path, capsys
+):
+    """The statement was the agent's own, so the failure must not point at dex."""
+    repo = _mapped_repo(airbnb_duckdb, tmp_path, capsys)
+    payload = _query(
+        "SELECT CAST('abc' AS INTEGER) FROM RAW_LISTINGS",
+        airbnb_duckdb,
+        repo,
+        capsys,
+        expect_error=True,
+    )
+    message = payload["errors"][0]
+    assert "the warehouse refused the statement" in message
+    assert "dex built" not in message
+    assert payload["reason"] == "execution_failure"
