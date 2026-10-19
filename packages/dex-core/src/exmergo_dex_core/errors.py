@@ -183,15 +183,31 @@ class WarehouseQueryError(DexError):
         *,
         reading: str | None = None,
         stage: StatementStage | None = None,
+        authored_by: str = "dex",
     ):
         self.detail = detail
         self.reading = reading
         self.stage = stage
+        self.authored_by = authored_by
         super().__init__(self._message())
 
     def _message(self) -> str:
         about = f" while reading {self.reading}" if self.reading else ""
+        if self.authored_by == "caller":
+            return f"the warehouse refused the statement{about}: {self.detail}"
         return f"the warehouse refused a statement dex built{about}: {self.detail}"
+
+    def from_caller(self) -> WarehouseQueryError:
+        """This failure marked as refusing a statement the caller wrote.
+
+        ``explore query`` runs SQL the agent authored, so "a statement dex
+        built" would point at the wrong cause. Everything else is carried
+        across, like :meth:`naming`.
+        """
+
+        return WarehouseQueryError(
+            self.detail, reading=self.reading, stage=self.stage, authored_by="caller"
+        )
 
     def naming(self, identifier: str) -> WarehouseQueryError:
         """This failure with the object it was reading named.
@@ -204,7 +220,12 @@ class WarehouseQueryError(DexError):
 
         if self.reading is not None:
             return self
-        return WarehouseQueryError(self.detail, reading=identifier, stage=self.stage)
+        return WarehouseQueryError(
+            self.detail,
+            reading=identifier,
+            stage=self.stage,
+            authored_by=self.authored_by,
+        )
 
 
 class NoConnectorSelectedError(ConfigurationError):
